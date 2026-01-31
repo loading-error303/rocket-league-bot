@@ -1,0 +1,12 @@
+[project]
+name = "rl-bot-project"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "rich>=14.3.1",
+    "rlgym[all]>=2.0.1",
+    "shimmy>=2.0.0",
+    "stable-baselines3>=2.7.1",
+    "tensorboard>=2.20.0",
+    "tqdm>=4.67.2",
+]

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Training outputs
+checkpoints/
+tensorboard_logs/
+models/
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+
+# uv
+uv.lock
