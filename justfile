@@ -1,6 +1,9 @@
 # Rocket League RL Bot - Task Runner
 # Install just: winget install Casey.Just
 
+# Use PowerShell on Windows
+set shell := ["powershell.exe", "-NoLogo", "-Command"]
+
 # Default recipe
 default:
     @just --list
@@ -30,7 +33,7 @@ run episodes="5":
 
 # Start TensorBoard for monitoring
 tensorboard:
-    .\.venv\Scripts\python.exe -m tensorboard --logdir=./tensorboard_logs/
+    .\.venv\Scripts\tensorboard.exe --logdir=./tensorboard_logs/
 
 # Download RLViser executable
 download-rlviser:
@@ -49,7 +52,7 @@ clean-all: clean
 
 # Show GPU status
 gpu-check:
-    .\.venv\Scripts\python.exe -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"CPU\"}')"
+    .\.venv\Scripts\python.exe -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('Device:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
 
 # Install PyTorch with CUDA support
 install-cuda:
