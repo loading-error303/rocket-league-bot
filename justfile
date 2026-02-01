@@ -23,6 +23,11 @@ train timesteps="10000000" envs="16":
 train-quick:
     .\.venv\Scripts\python.exe train.py --timesteps 1000000 --n-envs 16
 
+# Train and then watch the results
+train-watch timesteps="1000000" envs="32" episodes="5":
+    .\.venv\Scripts\python.exe train.py --timesteps {{timesteps}} --n-envs {{envs}}
+    .\.venv\Scripts\python.exe watch.py --episodes {{episodes}} --speed 1.0
+
 # Watch the trained bot with RLViser
 watch episodes="5" speed="1.0":
     .\.venv\Scripts\python.exe watch.py --episodes {{episodes}} --speed {{speed}}
