@@ -3,9 +3,10 @@
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-from typing import Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from rlgym.api import RLGym
+from rlgym.api import RLGym, RewardFunction, AgentID
+from rlgym.rocket_league.api import GameState
 from rlgym.rocket_league.action_parsers import LookupTableAction, RepeatAction
 from rlgym.rocket_league.done_conditions import (
     AnyCondition,
@@ -22,6 +23,91 @@ from rlgym.rocket_league.state_mutators import (
     MutatorSequence,
 )
 from rlgym.rocket_league import common_values
+
+
+class SpeedReward(RewardFunction[AgentID, GameState, float]):
+    """Reward for moving fast - encourages speed flips and fast play."""
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        pass
+
+    def get_rewards(
+        self, agents: List[AgentID], state: GameState,
+        is_terminated: Dict[AgentID, bool], is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any]
+    ) -> Dict[AgentID, float]:
+        rewards = {}
+        for agent in agents:
+            car = state.cars[agent]
+            # Get car speed as fraction of max speed (2300 uu/s)
+            velocity = car.physics.linear_velocity
+            speed = np.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
+            speed_ratio = speed / common_values.CAR_MAX_SPEED
+            rewards[agent] = speed_ratio
+        return rewards
+
+
+class SpeedTowardBallReward(RewardFunction[AgentID, GameState, float]):
+    """Reward for moving quickly toward the ball - key for learning kickoffs and challenges."""
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        pass
+
+    def get_rewards(
+        self, agents: List[AgentID], state: GameState,
+        is_terminated: Dict[AgentID, bool], is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any]
+    ) -> Dict[AgentID, float]:
+        rewards = {}
+        for agent in agents:
+            car = state.cars[agent]
+            car_physics = car.physics if car.is_orange else car.inverted_physics
+            ball_physics = state.ball if car.is_orange else state.inverted_ball
+            
+            player_vel = np.array(car_physics.linear_velocity)
+            pos_diff = np.array(ball_physics.position) - np.array(car_physics.position)
+            dist_to_ball = np.linalg.norm(pos_diff)
+            
+            if dist_to_ball > 0:
+                dir_to_ball = pos_diff / dist_to_ball
+                speed_toward_ball = np.dot(player_vel, dir_to_ball)
+                rewards[agent] = max(speed_toward_ball / common_values.CAR_MAX_SPEED, 0.0)
+            else:
+                rewards[agent] = 0.0
+        return rewards
+
+
+class AirReward(RewardFunction[AgentID, GameState, float]):
+    """Small reward for being in the air - encourages aerial play."""
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        pass
+
+    def get_rewards(
+        self, agents: List[AgentID], state: GameState,
+        is_terminated: Dict[AgentID, bool], is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any]
+    ) -> Dict[AgentID, float]:
+        return {agent: float(not state.cars[agent].on_ground) for agent in agents}
+
+
+class BallSpeedReward(RewardFunction[AgentID, GameState, float]):
+    """Reward for ball moving fast - encourages powerful hits and shots."""
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        pass
+
+    def get_rewards(
+        self, agents: List[AgentID], state: GameState,
+        is_terminated: Dict[AgentID, bool], is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any]
+    ) -> Dict[AgentID, float]:
+        ball_vel = state.ball.linear_velocity
+        ball_speed = np.sqrt(ball_vel[0]**2 + ball_vel[1]**2 + ball_vel[2]**2)
+        # Normalize by max ball speed (6000 uu/s)
+        speed_ratio = ball_speed / common_values.BALL_MAX_SPEED
+        # All agents get same reward for ball speed
+        return {agent: speed_ratio for agent in agents}
 
 
 class RLGymWrapper(gym.Env):
@@ -127,9 +213,14 @@ def make_env(
         TimeoutCondition(timeout_seconds=game_timeout),
     )
 
+    # Reward function with speed multipliers for learning speed flips
     reward_fn = CombinedReward(
-        (TouchReward(), 0.1),
-        (GoalReward(), 10.0),
+        (TouchReward(), 0.1),           # +0.1 for touching ball
+        (GoalReward(), 10.0),           # +10 for scoring
+        (SpeedReward(), 0.01),          # Small continuous reward for going fast
+        (SpeedTowardBallReward(), 0.05),# Reward for speed toward ball (kickoffs!)
+        (AirReward(), 0.002),           # Tiny reward for being airborne
+        (BallSpeedReward(), 0.02),      # Reward for ball moving fast (powerful hits!)
     )
 
     obs_builder = DefaultObs(

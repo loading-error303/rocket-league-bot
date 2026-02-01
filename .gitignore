@@ -16,21 +16,20 @@ env/
 ENV/
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Training outputs
+# Training outputs (large files)
 checkpoints/
 tensorboard_logs/
 models/
-*.zip
+
+# RLViser executable (download separately)
+rlviser.exe
+settings.txt
 
 # OS
 .DS_Store
 Thumbs.db
-
-# uv
-uv.lock

@@ -6,10 +6,24 @@ Train a Rocket League agent using **RLGym** + **RocketSim** (headless simulator)
 
 - Python 3.10+
 - [uv](https://github.com/astral-sh/uv) package manager
+- [just](https://github.com/casey/just) command runner (optional, for automation)
 
 ## 🛠️ Setup
 
-```bash
+### Quick Start (with just)
+
+```powershell
+# Install just (Windows)
+winget install Casey.Just
+
+# Setup and train
+just setup
+just train
+```
+
+### Manual Setup
+
+```powershell
 # Create virtual environment and install dependencies
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1  # Windows
@@ -21,30 +35,62 @@ uv sync
 
 ## 🎮 Training
 
-```bash
-# Train with default settings (10M timesteps, 1v1)
-uv run python train.py
+```powershell
+# Train with default settings (10M timesteps, 16 parallel envs)
+just train
+
+# Or manually:
+.\.venv\Scripts\python.exe train.py --timesteps 10000000 --n-envs 16
 
 # Customize training
-uv run python train.py --timesteps 1000000 --team-size 2
+.\.venv\Scripts\python.exe train.py --timesteps 1000000 --team-size 2
 
 # Train without opponents
-uv run python train.py --no-opponents
+.\.venv\Scripts\python.exe train.py --no-opponents
 ```
 
 ### Monitor with TensorBoard
 
-```bash
-uv run tensorboard --logdir=./tensorboard_logs/
+```powershell
+just tensorboard
+# Or: .\.venv\Scripts\python.exe -m tensorboard --logdir=./tensorboard_logs/
 ```
 
 Open http://localhost:6006 to view training metrics.
 
-## 🤖 Inference
+## 👁️ Visualization (RLViser)
 
-```bash
-# Run trained agent
-uv run python bot.py --model ./models/rl_agent_final.zip --episodes 5
+Watch your trained bot play in a 3D visualizer!
+
+### Download RLViser
+
+1. Download [RLViser v0.8.0](https://github.com/VirxEC/rlviser/releases/download/v0.8.0/rlviser-win64.exe) for Windows
+2. Rename to `rlviser.exe` and place in project root
+
+Or use just:
+```powershell
+just download-rlviser
+```
+
+### Watch the Bot
+
+```powershell
+# Watch trained agent (default: 5 episodes at 1x speed)
+just watch
+
+# Or manually with options:
+.\.venv\Scripts\python.exe watch.py --model ./models/rl_agent_final.zip --episodes 10 --speed 2.0
+```
+
+**Controls:**
+- The visualizer runs at configurable speed (1.0 = real-time, 2.0 = 2x speed)
+- Close the RLViser window to stop
+
+## 🤖 Inference (Headless)
+
+```powershell
+# Run trained agent without visualization
+.\.venv\Scripts\python.exe bot.py --model ./models/rl_agent_final.zip --episodes 5
 ```
 
 ## 📁 Project Structure
@@ -54,9 +100,11 @@ uv run python bot.py --model ./models/rl_agent_final.zip --episodes 5
 ├── src/
 │   ├── __init__.py      # Package init
 │   ├── config.py        # Training configuration
-│   └── env.py           # RLGym environment wrapper
-├── train.py             # Training script
-├── bot.py               # Inference script
+│   └── env.py           # RLGym environment wrapper + custom rewards
+├── train.py             # Training script (parallel envs, GPU support)
+├── bot.py               # Inference script (headless)
+├── watch.py             # Visualization script (RLViser)
+├── justfile             # Task automation
 ├── pyproject.toml       # Project dependencies
 └── README.md
 ```
@@ -68,30 +116,29 @@ Edit `src/config.py` to customize:
 - **Environment**: Team size, timeouts, action repeat
 - **PPO Hyperparameters**: Learning rate, batch size, etc.
 - **Training**: Timesteps, checkpoint frequency
+- **Parallel Envs**: Number of parallel environments (default: 8)
 
-## 🎯 Customization
+## 🎯 Custom Rewards
 
-### Custom Rewards
+The bot uses multiple reward functions to learn:
 
-Create custom reward functions in `src/rewards.py`:
+| Reward | Weight | Purpose |
+|--------|--------|---------|
+| `TouchReward` | 0.1 | Encourage ball contact |
+| `GoalReward` | 10.0 | Score goals, penalize own goals |
+| `SpeedReward` | 0.01 | Reward high car speed |
+| `SpeedTowardBallReward` | 0.05 | Move toward the ball |
+| `AirReward` | 0.002 | Encourage aerial play |
+| `BallSpeedReward` | 0.02 | Hit ball with power |
 
-```python
-from rlgym.api import RewardFunction, AgentID
-from rlgym.rocket_league.api import GameState
-
-class MyReward(RewardFunction[AgentID, GameState, float]):
-    def reset(self, agents, initial_state, shared_info):
-        pass
-
-    def get_rewards(self, agents, state, is_terminated, is_truncated, shared_info):
-        return {agent: 0.0 for agent in agents}
-```
+Edit `src/env.py` to customize rewards.
 
 ## 📚 Resources
 
 - [RLGym Documentation](https://rlgym.org/)
 - [Stable Baselines3](https://stable-baselines3.readthedocs.io/)
 - [RocketSim](https://github.com/ZealanL/RocketSim)
+- [RLViser](https://github.com/VirxEC/rlviser)
 
 ## 📄 License
 

@@ -14,11 +14,12 @@ class TrainingConfig:
     action_repeat: int = 8
     no_touch_timeout: float = 30.0
     game_timeout: float = 300.0
+    n_envs: int = 8  # Parallel environments for speedup
 
     # PPO hyperparameters
     learning_rate: float = 5e-5
     n_steps: int = 2048
-    batch_size: int = 64
+    batch_size: int = 2048  # Larger batch for parallel envs
     n_epochs: int = 10
     gamma: float = 0.99
     gae_lambda: float = 0.95

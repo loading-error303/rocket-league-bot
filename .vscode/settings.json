@@ -1,0 +1,83 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "Set-Content": true,
+        "where.exe": true,
+        "pip": true,
+        "/^\\$bin = \"\\$env:USERPROFILE\\\\bin\"\n\\$current = \\[Environment\\]::GetEnvironmentVariable\\('PATH','User'\\)\nif \\(\\$current -notlike \"\\*\\$bin\\*\"\\) \\{\\[Environment\\]::SetEnvironmentVariable\\('PATH', \"\\$bin;\\$current\",'User'\\)\\}\n\\$Env:PATH = \"\\$bin;\\$Env:PATH\"\nwhere\\.exe pip; pip --version; where\\.exe python; python --version$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^if \\(\\$current -notlike \"\\*\\$bin\\*\"\\) \\{\\[Environment\\]::SetEnvironmentVariable\\('PATH', \"\\$bin;\\$current\",'User'\\)\\}\n\\$Env:PATH = \"\\$bin;\\$Env:PATH\"\nwhere\\.exe pip; pip --version; where\\.exe python; python --version$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\$Env:PATH = \"\\$bin;\\$Env:PATH\"; where\\.exe pip; pip --version; where\\.exe python; python --version$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "ForEach-Object": true,
+        "&": true,
+        "/^\\$bin = \"\\$env:USERPROFILE\\\\bin\"\n\\$pythonExe = 'C:\\\\Users\\\\karna\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python313\\\\python\\.exe'\n\\$content = \"@echo off`r`n\\\\\"\\$pythonExe\\\\\" -m pip %\\*`r`n\"\nSet-Content -Path \\(Join-Path \\$bin 'pip\\.cmd'\\) -Value \\$content -Encoding ASCII\nSet-Content -Path \\(Join-Path \\$bin 'pip3\\.cmd'\\) -Value \\$content -Encoding ASCII\nWrite-Output \"Wrote files:\"; Get-ChildItem \\$bin \\| Select-Object Name,Length,Attributes\nWrite-Output \"\\\\nContent of pip\\.cmd:\"; Get-Content \\(Join-Path \\$bin 'pip\\.cmd'\\) -Raw\nWrite-Output \"\\\\nRun via cmd\\.exe:\"; cmd /c \"\"%USERPROFILE%\\\\bin\\\\pip\\.cmd\" --version\"; \nWrite-Output \"\\\\nRun via powershell call:\"; & \"\\$bin\\\\pip\\.cmd\" --version$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\$pythonExe = 'C:\\\\Users\\\\karna\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python313\\\\python\\.exe'\n\\$content = \"@echo off`r`n\\\\\"\\$pythonExe\\\\\" -m pip %\\*`r`n\"\nSet-Content -Path \\(Join-Path \\$bin 'pip\\.cmd'\\) -Value \\$content -Encoding ASCII\nSet-Content -Path \\(Join-Path \\$bin 'pip3\\.cmd'\\) -Value \\$content -Encoding ASCII\nWrite-Output \"Wrote files:\"; Get-ChildItem \\$bin \\| Select-Object Name,Length,Attributes\nWrite-Output \"\\\\nContent of pip\\.cmd:\"; Get-Content \\(Join-Path \\$bin 'pip\\.cmd'\\) -Raw\nWrite-Output \"\\\\nRun via cmd\\.exe:\"; cmd /c \"\"%USERPROFILE%\\\\bin\\\\pip\\.cmd\" --version\"; \nWrite-Output \"\\\\nRun via powershell call:\"; & \"\\$bin\\\\pip\\.cmd\" --version$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Content -Path \\(Join-Path \\$bin 'pip\\.cmd'\\) -Value \\$content -Encoding ASCII; Set-Content -Path \\(Join-Path \\$bin 'pip3\\.cmd'\\) -Value \\$content -Encoding ASCII; Write-Output \"Wrote files:\"; Get-ChildItem \\$bin \\| Select-Object Name,Length,Attributes; Write-Output \"\\\\nContent of pip\\.cmd:\"; Get-Content \\(Join-Path \\$bin 'pip\\.cmd'\\) -Raw; Write-Output \"\\\\nRun via cmd\\.exe:\"; cmd /c \"\"%USERPROFILE%\\\\bin\\\\pip\\.cmd\" --version\"; Write-Output \"\\\\nRun via powershell call:\"; & \"\\$bin\\\\pip\\.cmd\" --version$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"import rlgym; print\\(dir\\(rlgym\\)\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"from rlgym\\.rocket_league import RocketLeague; print\\('Found RocketLeague'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"from rlgym import rocket_league; print\\(dir\\(rocket_league\\)\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"import rlgym\\.api; print\\(dir\\(rlgym\\.api\\)\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"from rlgym\\.api import RLGym; help\\(RLGym\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"import rlgym\\.rocket_league; print\\(dir\\(rlgym\\.rocket_league\\)\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"import pkgutil; import rlgym\\.rocket_league; print\\(\\[m\\.name for m in pkgutil\\.iter_modules\\(rlgym\\.rocket_league\\.__path__\\)\\]\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"from rlgym\\.rocket_league import sim; print\\(dir\\(sim\\)\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"from rlgym\\.rocket_league import action_parsers, obs_builders, reward_functions, done_conditions, state_mutators; print\\('action_parsers:', dir\\(action_parsers\\)\\); print\\('obs_builders:', dir\\(obs_builders\\)\\); print\\('reward_functions:', dir\\(reward_functions\\)\\); print\\('state_mutators:', dir\\(state_mutators\\)\\); print\\('done_conditions:', dir\\(done_conditions\\)\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"from shimmy\\.openai_gym_compatibility import _convert_space; print\\('shimmy available'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; uv run python train\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\. \\.\\\\\\.venv\\\\Scripts\\\\Activate\\.ps1; python -c \"\nfrom rlgym\\.api import RLGym\nfrom rlgym\\.rocket_league\\.action_parsers import LookupTableAction\nfrom rlgym\\.rocket_league\\.done_conditions import GoalCondition\nfrom rlgym\\.rocket_league\\.obs_builders import DefaultObs\nfrom rlgym\\.rocket_league\\.reward_functions import GoalReward\nfrom rlgym\\.rocket_league\\.sim import RocketSimEngine\nfrom rlgym\\.rocket_league\\.state_mutators import MutatorSequence, FixedTeamSizeMutator, KickoffMutator\n\nstate_mutator = MutatorSequence\\(\n    FixedTeamSizeMutator\\(blue_size=1, orange_size=1\\),\n    KickoffMutator\\(\\)\n\\)\n\nrlgym_env = RLGym\\(\n    state_mutator=state_mutator,\n    obs_builder=DefaultObs\\(\\),\n    action_parser=LookupTableAction\\(\\),\n    reward_fn=GoalReward\\(\\),\n    termination_cond=GoalCondition\\(\\),\n    transition_engine=RocketSimEngine\\(\\)\n\\)\n\nresult = rlgym_env\\.reset\\(\\)\nprint\\('Reset returned:', type\\(result\\)\\)\nprint\\('Length:', len\\(result\\) if hasattr\\(result, '__len__'\\) else 'N/A'\\)\nif isinstance\\(result, tuple\\):\n    for i, item in enumerate\\(result\\):\n        print\\(f'  Item \\{i\\}: type=\\{type\\(item\\)\\}'\\)\n        if isinstance\\(item, dict\\):\n            print\\(f'    Keys: \\{list\\(item\\.keys\\(\\)\\)\\}'\\)\n\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "git init": true,
+        "git add": true
+    }
+}

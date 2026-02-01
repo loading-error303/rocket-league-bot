@@ -5,6 +5,7 @@ import argparse
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from src.config import TrainingConfig
 from src.env import make_env
@@ -16,14 +17,19 @@ def train(config: TrainingConfig) -> None:
     Args:
         config: Training configuration and hyperparameters.
     """
-    print("Creating environment...")
-    env = make_env(
-        spawn_opponents=config.spawn_opponents,
-        team_size=config.team_size,
-        action_repeat=config.action_repeat,
-        no_touch_timeout=config.no_touch_timeout,
-        game_timeout=config.game_timeout,
-    )
+    print(f"Creating {config.n_envs} parallel environments...")
+    
+    def _make_env():
+        return make_env(
+            spawn_opponents=config.spawn_opponents,
+            team_size=config.team_size,
+            action_repeat=config.action_repeat,
+            no_touch_timeout=config.no_touch_timeout,
+            game_timeout=config.game_timeout,
+        )
+    
+    # Use SubprocVecEnv for parallel simulation (big speedup)
+    env = SubprocVecEnv([_make_env for _ in range(config.n_envs)])
 
     print(f"Observation space: {env.observation_space}")
     print(f"Action space: {env.action_space}")
@@ -83,12 +89,19 @@ def main() -> None:
         action="store_true",
         help="Train without opponents",
     )
+    parser.add_argument(
+        "--n-envs",
+        type=int,
+        default=8,
+        help="Number of parallel environments (default: 8)",
+    )
     args = parser.parse_args()
 
     config = TrainingConfig(
         total_timesteps=args.timesteps,
         team_size=args.team_size,
         spawn_opponents=not args.no_opponents,
+        n_envs=args.n_envs,
     )
 
     train(config)
