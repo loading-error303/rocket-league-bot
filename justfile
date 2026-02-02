@@ -55,6 +55,13 @@ clean-all: clean
     powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue .venv"
     @echo "Cleaned all (including .venv)"
 
+# Overnight training (~22 hours) with 180M timesteps, then visualize
+overnight:
+    @echo "Starting overnight training (180M timesteps, 32 envs, ~22 hours)..."
+    .\.venv\Scripts\python.exe train.py --timesteps 180000000 --n-envs 32
+    @echo "Training complete! Launching visualization..."
+    .\.venv\Scripts\python.exe watch.py --episodes 10 --speed 1.0
+
 # Show GPU status
 gpu-check:
     .\.venv\Scripts\python.exe -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('Device:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
