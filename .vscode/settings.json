@@ -78,6 +78,12 @@
             "matchCommandLine": true
         },
         "git init": true,
-        "git add": true
+        "git add": true,
+        "/^\\$env:Path = \\[System\\.Environment\\]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) \\+ \";\" \\+ \\[System\\.Environment\\]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); just watch 5 1\\.0$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "C:/Users/karna/RL_AI/.venv/Scripts/python.exe": true,
+        ".venv\\Scripts\\python.exe": true
     }
 }
