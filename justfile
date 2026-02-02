@@ -15,17 +15,17 @@ setup:
     .\.venv\Scripts\python.exe -m pip install uv
     .\.venv\Scripts\python.exe -m uv sync
 
-# Train the model (10M timesteps, 16 parallel envs)
-train timesteps="10000000" envs="16":
+# Train the model (default: 10M timesteps, 48 parallel envs)
+train timesteps="10000000" envs="48":
     .\.venv\Scripts\python.exe train.py --timesteps {{timesteps}} --n-envs {{envs}}
 
-# Quick training run (1M timesteps)
+# Quick training run (1M timesteps, ~1 minute)
 train-quick:
-    .\.venv\Scripts\python.exe train.py --timesteps 1000000 --n-envs 16
+    .\.venv\Scripts\python.exe train.py --timesteps 1000000
 
 # Train and then watch the results
-train-watch timesteps="1000000" envs="32" episodes="5":
-    .\.venv\Scripts\python.exe train.py --timesteps {{timesteps}} --n-envs {{envs}}
+train-watch timesteps="5000000" episodes="5":
+    .\.venv\Scripts\python.exe train.py --timesteps {{timesteps}}
     .\.venv\Scripts\python.exe watch.py --episodes {{episodes}} --speed 1.0
 
 # Watch the trained bot with RLViser
@@ -55,10 +55,10 @@ clean-all: clean
     powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue .venv"
     @echo "Cleaned all (including .venv)"
 
-# Overnight training (~22 hours) with 180M timesteps, then visualize
+# Overnight training (~2 hours for 180M timesteps at 25k/sec)
 overnight:
-    @echo "Starting overnight training (180M timesteps, 32 envs, ~22 hours)..."
-    .\.venv\Scripts\python.exe train.py --timesteps 180000000 --n-envs 32
+    @echo "Starting overnight training (180M timesteps, ~2 hours)..."
+    .\.\.venv\Scripts\python.exe train.py --timesteps 180000000
     @echo "Training complete! Launching visualization..."
     .\.venv\Scripts\python.exe watch.py --episodes 10 --speed 1.0
 

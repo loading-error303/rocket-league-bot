@@ -140,12 +140,12 @@ def make_env(
 
     # Reward function with speed multipliers for learning speed flips
     reward_fn = CombinedReward(
-        #(TouchReward(), 0.1),             # +0.1 for touching ball
-        #(GoalReward(), 10.0),             # +10 for scoring
+        (TouchReward(), 0.1),             # +0.1 for touching ball
+        (GoalReward(), 10.0),             # +10 for scoring
         (SpeedReward(), 2.0),            # Small continuous reward for going fast
-        #(SpeedTowardBallReward(), 0.05),  # Reward for speed toward ball (kickoffs!)
-        #(AirReward(), 0.002),             # Tiny reward for being airborne
-        #(BallSpeedReward(), 0.02),        # Reward for ball moving fast (powerful hits!)
+        (SpeedTowardBallReward(), 0.05),  # Reward for speed toward ball (kickoffs!)
+        (AirReward(), 0.002),             # Tiny reward for being airborne
+        (BallSpeedReward(), 0.02),        # Reward for ball moving fast (powerful hits!)
         (BoostPickupReward(), 6.1),       # Reward for collecting boost pads
         (BoostUsageReward(), 5.0),        # High reward for using boost!
         (BoostPadDirectionReward(), 1.0),# Reward for moving toward boost in front of car
