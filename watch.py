@@ -86,8 +86,9 @@ def watch(model_path: Path, num_episodes: int = 3, speed: float = 1.0):
         num_episodes: Number of episodes to watch.
         speed: Playback speed (1.0 = realtime, 2.0 = 2x speed).
     """
-    print(f"Loading model from {model_path}...")
-    model = PPO.load(str(model_path))
+    print(f"Loading models from {model_path}...")
+    model_blue = PPO.load(str(model_path))
+    model_orange = PPO.load(str(model_path))
 
     print("Creating environment with RLViser...")
     env = make_env_with_renderer()
@@ -109,17 +110,19 @@ def watch(model_path: Path, num_episodes: int = 3, speed: float = 1.0):
         while not done:
             step_start = time.time()
             
-            # Get actions for all agents
+            # Get actions for all agents (separate model instances with same weights)
             actions = {}
             for i, agent in enumerate(agents):
                 obs = obs_dict[agent].astype(np.float32)
                 if i == 0:
-                    # Our trained agent
-                    action, _ = model.predict(obs, deterministic=True)
-                    actions[agent] = np.array([action], dtype=np.int64)
+                    action, _ = model_blue.predict(obs, deterministic=True)
                 else:
-                    # Random opponent
-                    actions[agent] = np.array([np.random.randint(0, 90)], dtype=np.int64)
+                    # First move is random for orange to vary kickoffs
+                    if steps == 0:
+                        action = np.random.randint(0, 90)
+                    else:
+                        action, _ = model_orange.predict(obs, deterministic=True)
+                actions[agent] = np.array([action], dtype=np.int64)
 
             # Step environment
             obs_dict, reward_dict, terminated_dict, truncated_dict = env.step(actions)
