@@ -32,7 +32,7 @@ def build_rlgym_env():
     from src.rewards import (
         SpeedReward, SpeedTowardBallReward, BallSpeedReward,
         BoostPickupReward, BoostUsageReward, BoostPadDirectionReward,
-        AirReward, FlipPenalty
+        AirReward, FlipPenalty, OwnGoalPenalty, WiffOrWeakShotPenalty
     )
     
     # Environment config
@@ -50,7 +50,9 @@ def build_rlgym_env():
     rewards_and_weights = (
         # Core rewards
         (GoalReward(), 10.0),
+        (OwnGoalPenalty(), 1.0),
         (TouchReward(), 0.5),
+        (WiffOrWeakShotPenalty(), 1.0),
         
         # Speed rewards - encourage fast play
         (SpeedReward(), 0.1),
@@ -113,14 +115,9 @@ def train(timesteps: int, n_proc: int, checkpoint_freq: int) -> None:
     """
     from rlgym_ppo import Learner
     
-    # GPU optimizations
-    if torch.cuda.is_available():
-        torch.backends.cuda.matmul.allow_tf32 = True
-        torch.backends.cudnn.allow_tf32 = True
-        torch.backends.cudnn.benchmark = True
-        torch.backends.cuda.enable_flash_sdp(True)
-        print(f"GPU: {torch.cuda.get_device_name(0)}")
-        print(f"TF32: {torch.backends.cuda.matmul.allow_tf32}")
+    # Use GPU if available
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
     
     # Minimum batch size for inference
     min_inference_size = max(1, int(round(n_proc * 0.9)))
@@ -175,7 +172,7 @@ def train(timesteps: int, n_proc: int, checkpoint_freq: int) -> None:
         log_to_wandb=False,
         
         # Device
-        device="auto",
+        device=device,
     )
     
     learner.learn()

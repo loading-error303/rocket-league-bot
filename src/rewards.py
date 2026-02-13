@@ -318,3 +318,127 @@ class FlipPenalty(RewardFunction[AgentID, GameState, float]):
             self.prev_has_flipped[agent] = car.has_flipped
             self.prev_speed[agent] = current_speed
         return rewards
+
+
+# =============================================================================
+# GOAL PENALTIES
+# =============================================================================
+
+class OwnGoalPenalty(RewardFunction[AgentID, GameState, float]):
+    """Penalty when the opponent scores (ball goes into the agent's net)."""
+
+    def __init__(self, penalty: float = -30.0):
+        self.penalty = penalty
+        self._prev_blue_score = 0
+        self._prev_orange_score = 0
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        self._prev_blue_score, self._prev_orange_score = self._get_scores(initial_state)
+
+    def get_rewards(
+        self, agents: List[AgentID], state: GameState,
+        is_terminated: Dict[AgentID, bool], is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any]
+    ) -> Dict[AgentID, float]:
+        blue_score, orange_score = self._get_scores(state)
+        blue_delta = blue_score - self._prev_blue_score
+        orange_delta = orange_score - self._prev_orange_score
+
+        rewards: Dict[AgentID, float] = {agent: 0.0 for agent in agents}
+
+        if blue_delta > 0 or orange_delta > 0:
+            for agent in agents:
+                car = state.cars[agent]
+                if car.is_orange:
+                    if blue_delta > 0:
+                        rewards[agent] = self.penalty
+                else:
+                    if orange_delta > 0:
+                        rewards[agent] = self.penalty
+
+        self._prev_blue_score = blue_score
+        self._prev_orange_score = orange_score
+        return rewards
+
+    @staticmethod
+    def _get_scores(state: GameState) -> tuple[int, int]:
+        blue_score = getattr(state, "blue_score", 0)
+        orange_score = getattr(state, "orange_score", 0)
+        return int(blue_score), int(orange_score)
+
+
+class WiffOrWeakShotPenalty(RewardFunction[AgentID, GameState, float]):
+    """Penalty for missing a close ball (wiff) or making a weak touch/shot."""
+
+    def __init__(
+        self,
+        wiff_penalty: float = -1.0,
+        weak_shot_penalty: float = -1.0,
+        wiff_distance: float = 350.0,
+        weak_shot_radius: float = 100.0,
+    ) -> None:
+        self.wiff_penalty = wiff_penalty
+        self.weak_shot_penalty = weak_shot_penalty
+        self.wiff_distance = wiff_distance
+        self.weak_shot_radius = weak_shot_radius
+        self._prev_ball_speed = 0.0
+        self._prev_dist: Dict[AgentID, float] = {}
+        self._prev_ball_touched: Dict[AgentID, bool] = {}
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        self._prev_ball_speed = self._get_ball_speed(initial_state)
+        self._prev_dist = {}
+        self._prev_ball_touched = {}
+        for agent in agents:
+            car = initial_state.cars[agent]
+            dist = self._distance_to_ball(car.physics.position, initial_state.ball.position)
+            self._prev_dist[agent] = dist
+            self._prev_ball_touched[agent] = bool(getattr(car, "ball_touched", False))
+
+    def get_rewards(
+        self, agents: List[AgentID], state: GameState,
+        is_terminated: Dict[AgentID, bool], is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any]
+    ) -> Dict[AgentID, float]:
+        rewards: Dict[AgentID, float] = {agent: 0.0 for agent in agents}
+        ball_speed = self._get_ball_speed(state)
+
+        for agent in agents:
+            car = state.cars[agent]
+            dist = self._distance_to_ball(car.physics.position, state.ball.position)
+
+            ball_touched = bool(getattr(car, "ball_touched", False))
+            prev_ball_touched = self._prev_ball_touched.get(agent, False)
+            prev_dist = self._prev_dist.get(agent, dist)
+
+            # Weak shot: within 1m radius, ball exit speed should exceed car speed
+            if ball_touched and not prev_ball_touched and dist <= self.weak_shot_radius:
+                car_vel = car.physics.linear_velocity
+                car_speed = float(np.sqrt(car_vel[0] ** 2 + car_vel[1] ** 2 + car_vel[2] ** 2))
+                if ball_speed <= car_speed:
+                    rewards[agent] += self.weak_shot_penalty
+
+            # Wiff: was close to the ball, then moved away without touching
+            if (
+                prev_dist <= self.wiff_distance
+                and dist > self.wiff_distance
+                and not ball_touched
+                and not prev_ball_touched
+            ):
+                rewards[agent] += self.wiff_penalty
+
+            self._prev_dist[agent] = dist
+            self._prev_ball_touched[agent] = ball_touched
+
+        self._prev_ball_speed = ball_speed
+        return rewards
+
+    @staticmethod
+    def _get_ball_speed(state: GameState) -> float:
+        ball_vel = state.ball.linear_velocity
+        return float(np.sqrt(ball_vel[0] ** 2 + ball_vel[1] ** 2 + ball_vel[2] ** 2))
+
+    @staticmethod
+    def _distance_to_ball(car_pos: np.ndarray, ball_pos: np.ndarray) -> float:
+        diff = np.asarray(ball_pos) - np.asarray(car_pos)
+        return float(np.sqrt(np.dot(diff, diff)))

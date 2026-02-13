@@ -1,12 +1,22 @@
 [project]
 name = "rl-bot-project"
 version = "0.1.0"
-requires-python = ">=3.13"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "rich>=14.3.1",
     "rlgym[all]>=2.0.1",
+    "rlgym-ppo @ git+https://github.com/AechPro/rlgym-ppo",
     "shimmy>=2.0.0",
     "stable-baselines3>=2.7.1",
     "tensorboard>=2.20.0",
+    "torch>=2.3.0",
     "tqdm>=4.67.2",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }

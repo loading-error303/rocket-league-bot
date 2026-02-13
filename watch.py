@@ -30,9 +30,11 @@ from rlgym.rocket_league.state_mutators import (
 from rlgym.rocket_league import common_values
 from rlgym.rocket_league.rlviser import RLViserRenderer
 
+from src.rewards import OwnGoalPenalty, WiffOrWeakShotPenalty
 
-def make_env_with_renderer():
-    """Create environment with RLViser renderer."""
+
+def make_env(render: bool = True):
+    """Create environment, optionally with RLViser renderer."""
     action_parser = RepeatAction(LookupTableAction(), repeats=8)
 
     termination_condition = GoalCondition()
@@ -44,6 +46,8 @@ def make_env_with_renderer():
     reward_fn = CombinedReward(
         (TouchReward(), 0.1),
         (GoalReward(), 10.0),
+        (OwnGoalPenalty(), 1.0),
+        (WiffOrWeakShotPenalty(), 1.0),
     )
 
     obs_builder = DefaultObs(
@@ -64,8 +68,7 @@ def make_env_with_renderer():
         KickoffMutator(),
     )
 
-    # Create RLViser renderer for visualization
-    renderer = RLViserRenderer()
+    renderer = RLViserRenderer() if render else None
 
     env = RLGym(
         state_mutator=state_mutator,
@@ -165,27 +168,48 @@ def load_model(model_path: Path):
     return PPO.load(str(zip_path))
 
 
-def watch(model_path: Path, num_episodes: int = 3, speed: float = 1.0):
+def watch(
+    model_path: Path,
+    num_episodes: int = 3,
+    speed: float = 1.0,
+    hours: float | None = None,
+    headless: bool = False,
+):
     """Watch the trained agent play.
 
     Args:
         model_path: Path to the trained model.
         num_episodes: Number of episodes to watch.
         speed: Playback speed (1.0 = realtime, 2.0 = 2x speed).
+        hours: Optional wall-clock time limit in hours.
+        headless: If True, disable visualization.
     """
     print(f"Loading models from {model_path}...")
     model_blue = load_model(model_path)
     model_orange = load_model(model_path)
 
-    print("Creating environment with RLViser...")
-    env = make_env_with_renderer()
+    if headless:
+        print("Creating environment (headless)...")
+    else:
+        print("Creating environment with RLViser...")
+    env = make_env(render=not headless)
 
     # Time per step for realtime playback
     # 8 action repeat * (1/120) seconds per tick = 0.0667 seconds per step
     step_time = (8 / 120) / speed
 
-    for episode in range(num_episodes):
-        print(f"\n=== Episode {episode + 1}/{num_episodes} ===")
+    end_time = time.time() + (hours * 3600) if hours is not None else None
+
+    episode = 0
+    while True:
+        if end_time is not None and time.time() >= end_time:
+            break
+        if num_episodes is not None and num_episodes > 0 and episode >= num_episodes:
+            break
+
+        episode += 1
+        episode_label = f"{episode}/{num_episodes}" if num_episodes and num_episodes > 0 else f"{episode}/∞"
+        print(f"\n=== Episode {episode_label} ===")
         
         obs_dict = env.reset()
         agents = list(obs_dict.keys())
@@ -215,7 +239,8 @@ def watch(model_path: Path, num_episodes: int = 3, speed: float = 1.0):
             obs_dict, reward_dict, terminated_dict, truncated_dict = env.step(actions)
             
             # Render
-            env.render()
+            if not headless:
+                env.render()
 
             total_reward += reward_dict[agents[0]]
             steps += 1
@@ -239,14 +264,14 @@ def main():
     parser.add_argument(
         "--model",
         type=Path,
-        default=Path("./models/rl_agent_final.zip"),
-        help="Path to trained model",
+        default=None,
+        help="Path to trained model (if omitted, use latest checkpoint)",
     )
     parser.add_argument(
         "--episodes",
         type=int,
         default=3,
-        help="Number of episodes to watch",
+        help="Number of episodes to watch (0 = unlimited)",
     )
     parser.add_argument(
         "--speed",
@@ -254,19 +279,27 @@ def main():
         default=1.0,
         help="Playback speed (1.0 = realtime)",
     )
+    parser.add_argument(
+        "--hours",
+        type=float,
+        default=None,
+        help="Run for a wall-clock time limit in hours",
+    )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Disable visualization",
+    )
     args = parser.parse_args()
 
-    # Find model - prefer rlgym-ppo checkpoints
-    model_path = args.model
-    
-    # First try rlgym-ppo checkpoints (our current training format)
-    rlgym_ppo_ckpt = find_latest_rlgym_ppo_checkpoint()
-    if rlgym_ppo_ckpt:
-        model_path = rlgym_ppo_ckpt
-        print(f"Using latest checkpoint: {model_path}")
-    elif not model_path.exists():
-        model_path = model_path.with_suffix(".zip")
-        if not model_path.exists():
+    # Find model - prefer rlgym-ppo checkpoints when no explicit model is provided
+    if args.model is None:
+        # First try rlgym-ppo checkpoints (our current training format)
+        rlgym_ppo_ckpt = find_latest_rlgym_ppo_checkpoint()
+        if rlgym_ppo_ckpt:
+            model_path = rlgym_ppo_ckpt
+            print(f"Using latest checkpoint: {model_path}")
+        else:
             # Fall back to SB3 checkpoints
             checkpoints = list(Path("./checkpoints").glob("*.zip"))
             if checkpoints:
@@ -275,8 +308,15 @@ def main():
             else:
                 print(f"Error: No model found")
                 return
+    else:
+        model_path = args.model
+        if not model_path.exists():
+            model_path = model_path.with_suffix(".zip")
+            if not model_path.exists():
+                print(f"Error: Model not found at {model_path}")
+                return
 
-    watch(model_path, args.episodes, args.speed)
+    watch(model_path, args.episodes, args.speed, args.hours, args.headless)
 
 
 if __name__ == "__main__":

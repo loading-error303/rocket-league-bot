@@ -32,6 +32,8 @@ from .rewards import (
     BoostPadDirectionReward,
     AirReward,
     FlipPenalty,
+    OwnGoalPenalty,
+    WiffOrWeakShotPenalty,
 )
 
 
@@ -111,7 +113,7 @@ class RLGymWrapper(gym.Env):
 def make_env(
     spawn_opponents: bool = True,
     team_size: int = 1,
-    action_repeat: int = 8,
+    action_repeat: int = 12,  # Increased from 8 to 12 (50% speed boost)
     no_touch_timeout: float = 30.0,
     game_timeout: float = 300.0,
 ) -> RLGymWrapper:
@@ -142,13 +144,15 @@ def make_env(
     reward_fn = CombinedReward(
         (TouchReward(), 0.1),             # +0.1 for touching ball
         (GoalReward(), 10.0),             # +10 for scoring
+        (OwnGoalPenalty(), 1.0),          # -30 when conceding
+        (WiffOrWeakShotPenalty(), 1.0),   # Penalty for wiffs/weak touches
         (SpeedReward(), 2.0),            # Small continuous reward for going fast
-        (SpeedTowardBallReward(), 0.05),  # Reward for speed toward ball (kickoffs!)
-        (AirReward(), 0.002),             # Tiny reward for being airborne
+        # (SpeedTowardBallReward(), 0.05),  # Reward for speed toward ball (kickoffs!)
+        # (AirReward(), 0.002),             # Tiny reward for being airborne
         (BallSpeedReward(), 0.02),        # Reward for ball moving fast (powerful hits!)
         (BoostPickupReward(), 6.1),       # Reward for collecting boost pads
         (BoostUsageReward(), 5.0),        # High reward for using boost!
-        (BoostPadDirectionReward(), 1.0),# Reward for moving toward boost in front of car
+        #(BoostPadDirectionReward(), 1.0),# Reward for moving toward boost in front of car
         (FlipPenalty(), 1.0),             # -0.1 penalty each time car flips
     )
 

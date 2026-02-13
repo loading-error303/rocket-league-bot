@@ -84,6 +84,8 @@
             "matchCommandLine": true
         },
         "C:/Users/karna/RL_AI/.venv/Scripts/python.exe": true,
-        ".venv\\Scripts\\python.exe": true
+        ".venv\\Scripts\\python.exe": true,
+        "uv": true,
+        "just": true
     }
 }
