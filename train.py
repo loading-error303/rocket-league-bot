@@ -6,6 +6,13 @@ Uses shared memory vectorization for ~25k steps/sec (4x faster than SB3).
 
 import argparse
 import os
+import sys
+from io import StringIO
+import contextlib
+
+# Check if CPU-only mode is requested (before importing torch)
+if "--cpu" in sys.argv:
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Hide all CUDA devices
 
 # Thread limits for efficient CPU usage (set before importing numpy/torch)
 os.environ["OMP_NUM_THREADS"] = "4"
@@ -105,18 +112,23 @@ def build_rlgym_env():
     return RLGymV2GymWrapper(env)
 
 
-def train(timesteps: int, n_proc: int, checkpoint_freq: int) -> None:
+def train(timesteps: int, n_proc: int, checkpoint_freq: int, force_cpu: bool = False) -> None:
     """Train the agent using PPO with rlgym-ppo.
 
     Args:
         timesteps: Total training timesteps.
         n_proc: Number of parallel environment processes.
         checkpoint_freq: Save checkpoint every N timesteps.
+        force_cpu: Force CPU-only training (avoids CUDA issues).
     """
     from rlgym_ppo import Learner
     
-    # Use GPU if available
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # Use GPU if available and not forcing CPU
+    if force_cpu:
+        device = "cpu"
+        print("Forcing CPU-only training (GPU disabled)")
+    else:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
     
     # Minimum batch size for inference
@@ -175,6 +187,22 @@ def train(timesteps: int, n_proc: int, checkpoint_freq: int) -> None:
         device=device,
     )
     
+    # Patch rlgym-ppo reporting to be more concise
+    import rlgym_ppo.util.reporting as reporting
+    original_report = reporting.report_metrics
+    iteration_count = [0]
+    
+    def concise_report(loggable_metrics, debug_metrics, wandb_run):
+        iteration_count[0] += 1
+        if iteration_count[0] % 5 == 0:  # Print every 5 iterations
+            steps = loggable_metrics.get("Cumulative Timesteps", 0)
+            reward = loggable_metrics.get("Policy Reward", 0)
+            sps = loggable_metrics.get("Overall Steps per Second", 0)
+            print(f"[{steps:,} steps] Reward: {reward:.2f} | Speed: {sps:,.0f} steps/sec")
+        original_report(loggable_metrics, debug_metrics, wandb_run)
+    
+    reporting.report_metrics = concise_report
+    
     learner.learn()
     print("Training complete!")
 
@@ -200,9 +228,14 @@ def main() -> None:
         default=1_000_000,
         help="Checkpoint frequency in timesteps (default: 1M)",
     )
+    parser.add_argument(
+        "--cpu",
+        action="store_true",
+        help="Force CPU-only training (avoids CUDA/GPU issues)",
+    )
     args = parser.parse_args()
 
-    train(args.timesteps, args.n_envs, args.checkpoint_freq)
+    train(args.timesteps, args.n_envs, args.checkpoint_freq, args.cpu)
 
 
 if __name__ == "__main__":

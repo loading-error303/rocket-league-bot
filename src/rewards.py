@@ -266,6 +266,20 @@ class BoostPadDirectionReward(RewardFunction[AgentID, GameState, float]):
 # MOVEMENT REWARDS
 # =============================================================================
 
+class SupersonicReward(RewardFunction[AgentID, GameState, float]):
+    """Reward for maintaining supersonic speed."""
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        pass
+
+    def get_rewards(
+        self, agents: List[AgentID], state: GameState,
+        is_terminated: Dict[AgentID, bool], is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any]
+    ) -> Dict[AgentID, float]:
+        return {agent: 1.0 if state.cars[agent].is_supersonic else 0.0 for agent in agents}
+
+
 class AirReward(RewardFunction[AgentID, GameState, float]):
     """Small reward for being in the air - encourages aerial play."""
 
