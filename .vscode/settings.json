@@ -86,6 +86,12 @@
         "C:/Users/karna/RL_AI/.venv/Scripts/python.exe": true,
         ".venv\\Scripts\\python.exe": true,
         "uv": true,
-        "just": true
+        "just": true,
+        "git submodule": true,
+        "nvidia-smi": true,
+        "Expand-Archive": true,
+        "Get-Command": true,
+        "Test-Path": true,
+        "set": true
     }
 }
