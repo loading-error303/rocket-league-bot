@@ -8,6 +8,7 @@ import argparse
 import os
 import sys
 from io import StringIO
+from pathlib import Path
 import contextlib
 
 # Check if CPU-only mode is requested (before importing torch)
@@ -36,11 +37,7 @@ def build_rlgym_env():
     from rlgym_ppo.util import RLGymV2GymWrapper
     
     # Import our custom rewards
-    from src.rewards import (
-        SpeedReward, SpeedTowardBallReward, BallSpeedReward,
-        BoostPickupReward, BoostUsageReward, BoostPadDirectionReward,
-        AirReward, FlipPenalty, OwnGoalPenalty, WiffOrWeakShotPenalty
-    )
+    from src.rewards import SpeedReward, TurnLeftReward
     
     # Environment config
     tick_skip = 8  # 15 Hz decision rate
@@ -55,25 +52,8 @@ def build_rlgym_env():
     
     # Reward functions with weights
     rewards_and_weights = (
-        # Core rewards
-        (GoalReward(), 10.0),
-        (OwnGoalPenalty(), 1.0),
-        (TouchReward(), 0.5),
-        (WiffOrWeakShotPenalty(), 1.0),
-        
-        # Speed rewards - encourage fast play
-        (SpeedReward(), 0.1),
-        (SpeedTowardBallReward(), 0.3),
-        (BallSpeedReward(), 0.2),
-        
-        # Boost management
-        (BoostPickupReward(), 0.05),
-        (BoostUsageReward(), 0.02),
-        (BoostPadDirectionReward(), 0.05),
-        
-        # Movement
-        (AirReward(), 0.01),
-        (FlipPenalty(), 0.1),
+        (TurnLeftReward(), 1.0),
+        (SpeedReward(), 0.5),
     )
     
     reward_fn = CombinedReward(*rewards_and_weights)
@@ -116,11 +96,12 @@ def train(timesteps: int, n_proc: int, checkpoint_freq: int, force_cpu: bool = F
     """Train the agent using PPO with rlgym-ppo.
 
     Args:
-        timesteps: Total training timesteps.
+        timesteps: Additional training timesteps to run.
         n_proc: Number of parallel environment processes.
         checkpoint_freq: Save checkpoint every N timesteps.
         force_cpu: Force CPU-only training (avoids CUDA issues).
     """
+    import json
     from rlgym_ppo import Learner
     
     # Use GPU if available and not forcing CPU
@@ -130,6 +111,21 @@ def train(timesteps: int, n_proc: int, checkpoint_freq: int, force_cpu: bool = F
     else:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
+    
+    # Find the current cumulative timesteps from the latest checkpoint
+    # so --timesteps means "train N more steps" not "train until N total"
+    checkpoints_dir = Path("checkpoints")
+    cumulative_so_far = 0
+    if checkpoints_dir.exists():
+        step_dirs = [d for d in checkpoints_dir.iterdir() if d.is_dir() and (d / "BOOK_KEEPING_VARS.json").exists()]
+        if step_dirs:
+            latest = max(step_dirs, key=lambda p: int(p.name))
+            with open(latest / "BOOK_KEEPING_VARS.json") as f:
+                cumulative_so_far = json.load(f).get("cumulative_timesteps", 0)
+            print(f"Found checkpoint at {cumulative_so_far:,} cumulative steps")
+    
+    total_limit = cumulative_so_far + timesteps
+    print(f"Will train {timesteps:,} additional steps (limit: {total_limit:,})")
     
     # Minimum batch size for inference
     min_inference_size = max(1, int(round(n_proc * 0.9)))
@@ -145,7 +141,7 @@ def train(timesteps: int, n_proc: int, checkpoint_freq: int, force_cpu: bool = F
     policy_layer_sizes = (512, 512, 256)
     critic_layer_sizes = (512, 512, 256)
     
-    print(f"Starting training: {timesteps:,} timesteps, {n_proc} processes")
+    print(f"Starting training: {timesteps:,} additional timesteps, {n_proc} processes")
     print(f"PPO batch size: {ppo_batch_size:,}")
     print(f"Checkpoints every: {checkpoint_freq:,} steps")
     
@@ -178,7 +174,7 @@ def train(timesteps: int, n_proc: int, checkpoint_freq: int, force_cpu: bool = F
         checkpoints_save_folder="checkpoints",
         add_unix_timestamp=False,  # Use plain "checkpoints" folder
         save_every_ts=checkpoint_freq,
-        timestep_limit=timesteps,
+        timestep_limit=total_limit,
         
         # Logging
         log_to_wandb=False,
