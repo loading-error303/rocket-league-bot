@@ -56,7 +56,6 @@ def make_env(render: bool = True):
         ang_coef=1 / np.pi,
         lin_vel_coef=1 / common_values.CAR_MAX_SPEED,
         ang_vel_coef=1 / common_values.CAR_MAX_ANG_VEL,
-        boost_coef=1 / 100.0,
     )
 
     state_mutator = MutatorSequence(

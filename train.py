@@ -37,7 +37,7 @@ def build_rlgym_env():
     from rlgym_ppo.util import RLGymV2GymWrapper
     
     # Import our custom rewards
-    from src.rewards import SpeedReward, TurnLeftReward
+    from src.rewards import SpeedReward, TurnLeftReward, ForwardReward, DriveToOpponentGoalReward
     
     # Environment config
     tick_skip = 8  # 15 Hz decision rate
@@ -52,8 +52,7 @@ def build_rlgym_env():
     
     # Reward functions with weights
     rewards_and_weights = (
-        (TurnLeftReward(), 1.0),
-        (SpeedReward(), 0.5),
+        (DriveToOpponentGoalReward(), 1.0),
     )
     
     reward_fn = CombinedReward(*rewards_and_weights)
@@ -183,15 +182,28 @@ def train(timesteps: int, n_proc: int, checkpoint_freq: int, force_cpu: bool = F
         device=device,
     )
     
-    # Patch rlgym-ppo reporting to be more concise
+    # Set up TensorBoard logging
+    from torch.utils.tensorboard import SummaryWriter
+    tb_log_dir = Path("./tensorboard_logs")
+    tb_log_dir.mkdir(parents=True, exist_ok=True)
+    tb_writer = SummaryWriter(log_dir=str(tb_log_dir))
+
+    # Patch rlgym-ppo reporting to be more concise + log to TensorBoard
     import rlgym_ppo.util.reporting as reporting
     original_report = reporting.report_metrics
     iteration_count = [0]
     
     def concise_report(loggable_metrics, debug_metrics, wandb_run):
         iteration_count[0] += 1
+        steps = loggable_metrics.get("Cumulative Timesteps", 0)
+
+        # Log all metrics to TensorBoard
+        for key, value in loggable_metrics.items():
+            if isinstance(value, (int, float)):
+                tb_writer.add_scalar(key, value, steps)
+        tb_writer.flush()
+
         if iteration_count[0] % 5 == 0:  # Print every 5 iterations
-            steps = loggable_metrics.get("Cumulative Timesteps", 0)
             reward = loggable_metrics.get("Policy Reward", 0)
             sps = loggable_metrics.get("Overall Steps per Second", 0)
             print(f"[{steps:,} steps] Reward: {reward:.2f} | Speed: {sps:,.0f} steps/sec")
