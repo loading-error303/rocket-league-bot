@@ -30,8 +30,6 @@ from rlgym.rocket_league.state_mutators import (
 from rlgym.rocket_league import common_values
 from rlgym.rocket_league.rlviser import RLViserRenderer
 
-from src.rewards import OwnGoalPenalty, WiffOrWeakShotPenalty
-
 
 def make_env(render: bool = True):
     """Create environment, optionally with RLViser renderer."""
@@ -46,8 +44,6 @@ def make_env(render: bool = True):
     reward_fn = CombinedReward(
         (TouchReward(), 0.1),
         (GoalReward(), 10.0),
-        (OwnGoalPenalty(), 1.0),
-        (WiffOrWeakShotPenalty(), 1.0),
     )
 
     obs_builder = DefaultObs(
@@ -112,22 +108,50 @@ class RLGymPPOPolicy(torch.nn.Module):
         return action, None
 
 
+def _extract_linear_layer_index(key: str) -> int:
+    for part in key.split("."):
+        if part.isdigit():
+            return int(part)
+    raise ValueError(f"Could not extract layer index from key: {key}")
+
+
+def _infer_policy_architecture(state_dict: dict[str, torch.Tensor]) -> tuple[int, list[int], int]:
+    weight_items = sorted(
+        ((key, value) for key, value in state_dict.items() if key.endswith("weight")),
+        key=lambda item: _extract_linear_layer_index(item[0]),
+    )
+    if not weight_items:
+        raise ValueError("Checkpoint does not contain any linear layer weights")
+
+    input_dim = int(weight_items[0][1].shape[1])
+    output_dim = int(weight_items[-1][1].shape[0])
+    layer_sizes = [int(value.shape[0]) for _, value in weight_items[:-1]]
+    return input_dim, layer_sizes, output_dim
+
+
+def _normalize_state_dict_keys(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    normalized = {}
+    for key, value in state_dict.items():
+        normalized[key if key.startswith("model.") else f"model.{key}"] = value
+    return normalized
+
+
 def load_rlgym_ppo_policy(checkpoint_path: Path) -> RLGymPPOPolicy:
     """Load policy from rlgym-ppo checkpoint directory."""
     policy_path = checkpoint_path / "PPO_POLICY.pt"
-    state_dict = torch.load(policy_path, map_location="cpu", weights_only=True)
-    
-    # Infer architecture from state dict
-    layer_sizes, input_dim, output_dim = [], None, None
-    for key, value in state_dict.items():
-        if "weight" in key:
-            if input_dim is None:
-                input_dim = value.shape[1]
-            idx = int(key.split(".")[1])
-            if f"model.{idx + 2}.weight" in state_dict:
-                layer_sizes.append(value.shape[0])
-            else:
-                output_dim = value.shape[0]
+    if not policy_path.exists():
+        policy_path = checkpoint_path / "PPO_POLICY.lt"
+
+    if not policy_path.exists():
+        raise FileNotFoundError(f"No PPO policy file found in {checkpoint_path}")
+
+    if policy_path.suffix == ".lt":
+        state_dict = torch.jit.load(str(policy_path), map_location="cpu").state_dict()
+    else:
+        state_dict = torch.load(policy_path, map_location="cpu", weights_only=True)
+
+    input_dim, layer_sizes, output_dim = _infer_policy_architecture(state_dict)
+    state_dict = _normalize_state_dict_keys(state_dict)
     
     print(f"rlgym-ppo model: input={input_dim}, layers={layer_sizes}, output={output_dim}")
     policy = RLGymPPOPolicy(input_dim, output_dim, layer_sizes)
@@ -141,7 +165,10 @@ def find_latest_rlgym_ppo_checkpoint() -> Path | None:
     # Check the standard checkpoints folder first
     checkpoints_dir = Path("./checkpoints")
     if checkpoints_dir.exists():
-        step_dirs = [d for d in checkpoints_dir.iterdir() if d.is_dir() and (d / "PPO_POLICY.pt").exists()]
+        step_dirs = [
+            d for d in checkpoints_dir.iterdir()
+            if d.is_dir() and ((d / "PPO_POLICY.pt").exists() or (d / "PPO_POLICY.lt").exists())
+        ]
         if step_dirs:
             return max(step_dirs, key=lambda p: int(p.name))
     
@@ -157,7 +184,9 @@ def find_latest_rlgym_ppo_checkpoint() -> Path | None:
 def load_model(model_path: Path):
     """Auto-detect model format and load appropriately."""
     # rlgym-ppo checkpoint directory
-    if model_path.is_dir() and (model_path / "PPO_POLICY.pt").exists():
+    if model_path.is_dir() and (
+        (model_path / "PPO_POLICY.pt").exists() or (model_path / "PPO_POLICY.lt").exists()
+    ):
         print(f"Loading rlgym-ppo checkpoint: {model_path}")
         return load_rlgym_ppo_policy(model_path)
     
@@ -315,6 +344,11 @@ def main():
             if not model_path.exists():
                 print(f"Error: Model not found at {model_path}")
                 return
+        elif model_path.is_dir() and not (
+            (model_path / "PPO_POLICY.pt").exists() or (model_path / "PPO_POLICY.lt").exists()
+        ):
+            print(f"Error: Checkpoint directory does not contain PPO_POLICY.pt or PPO_POLICY.lt: {model_path}")
+            return
 
     watch(model_path, args.episodes, args.speed, args.hours, args.headless)
 
