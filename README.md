@@ -1,14 +1,14 @@
-# 🚀 Rocket League RL Bot
+#  Rocket League RL Bot
 
 Train a Rocket League agent using **RLGym** + **RocketSim** (headless simulator) and **Stable Baselines3** (PPO).
 
-## 📦 Requirements
+##  Requirements
 
 - Python 3.10+
 - [uv](https://github.com/astral-sh/uv) package manager
 - [just](https://github.com/casey/just) command runner (optional, for automation)
 
-## 🛠️ Setup
+##  Setup
 
 ### Quick Start (with just)
 
@@ -33,7 +33,7 @@ pip install uv
 uv sync
 ```
 
-## 🎮 Training
+##  Training
 
 ```powershell
 # Train with default settings (10M timesteps, 16 parallel envs)
@@ -58,7 +58,7 @@ just tensorboard
 
 Open http://localhost:6006 to view training metrics.
 
-## 👁️ Visualization (RLViser)
+##  Visualization (RLViser)
 
 Watch your trained bot play in a 3D visualizer!
 
@@ -86,14 +86,14 @@ just watch
 - The visualizer runs at configurable speed (1.0 = real-time, 2.0 = 2x speed)
 - Close the RLViser window to stop
 
-## 🤖 Inference (Headless)
+## Inference (Headless)
 
 ```powershell
 # Run trained agent without visualization
 .\.venv\Scripts\python.exe bot.py --model ./models/rl_agent_final.zip --episodes 5
 ```
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 .
@@ -109,7 +109,7 @@ just watch
 └── README.md
 ```
 
-## ⚙️ Configuration
+##  Configuration
 
 Edit `src/config.py` to customize:
 
@@ -118,7 +118,7 @@ Edit `src/config.py` to customize:
 - **Training**: Timesteps, checkpoint frequency
 - **Parallel Envs**: Number of parallel environments (default: 8)
 
-## 🎯 Custom Rewards
+##  Custom Rewards
 
 The bot uses multiple reward functions to learn:
 
@@ -133,13 +133,13 @@ The bot uses multiple reward functions to learn:
 
 Edit `src/env.py` to customize rewards.
 
-## 📚 Resources
+##  Resources
 
 - [RLGym Documentation](https://rlgym.org/)
 - [Stable Baselines3](https://stable-baselines3.readthedocs.io/)
 - [RocketSim](https://github.com/ZealanL/RocketSim)
 - [RLViser](https://github.com/VirxEC/rlviser)
 
-## 📄 License
+##  License
 
 MIT
