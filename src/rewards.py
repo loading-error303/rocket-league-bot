@@ -258,3 +258,58 @@ class JumpReward(RewardFunction[AgentID, GameState, float]):
             self._prev_on_ground[agent] = car.on_ground
 
         return rewards
+
+
+class BoostPickupReward(RewardFunction[AgentID, GameState, float]):
+    """Reward for picking up boost pads.
+
+    Detects pickups by comparing each agent's boost amount to the previous step.
+    Big pads (100 boost) give 5x the reward of small pads (12 boost).
+    """
+
+    # Big pads grant 100 boost, small pads grant 12 boost.
+    # We use a threshold to distinguish the two.
+    BIG_PAD_THRESHOLD = 50.0
+
+    def __init__(self):
+        self._prev_boost: Dict[AgentID, float] = {}
+
+    def reset(
+        self,
+        agents: List[AgentID],
+        initial_state: GameState,
+        shared_info: Dict[str, Any],
+    ) -> None:
+        self._prev_boost.clear()
+        for agent in agents:
+            self._prev_boost[agent] = initial_state.cars[agent].boost_amount
+
+    def get_rewards(
+        self,
+        agents: List[AgentID],
+        state: GameState,
+        is_terminated: Dict[AgentID, bool],
+        is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any],
+    ) -> Dict[AgentID, float]:
+        rewards = {}
+        for agent in agents:
+            car = state.cars[agent]
+            current_boost = car.boost_amount
+            prev_boost = self._prev_boost.get(agent, current_boost)
+
+            boost_gained = current_boost - prev_boost
+
+            if boost_gained > 0:
+                if boost_gained >= self.BIG_PAD_THRESHOLD:
+                    # Big pad pickup — 5x reward
+                    rewards[agent] = 1.0
+                else:
+                    # Small pad pickup — base reward (1/5 of big)
+                    rewards[agent] = 0.2
+            else:
+                rewards[agent] = 0.0
+
+            self._prev_boost[agent] = current_boost
+
+        return rewards
