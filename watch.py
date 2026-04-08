@@ -30,6 +30,27 @@ from rlgym.rocket_league.state_mutators import (
 from rlgym.rocket_league import common_values
 from rlgym.rocket_league.rlviser import RLViserRenderer
 
+from src.rewards import JumpReward
+
+
+class TrackedCombinedReward(CombinedReward):
+    """CombinedReward that also stores per-component reward breakdowns."""
+
+    def __init__(self, *rewards_and_weights, names=None):
+        super().__init__(*rewards_and_weights)
+        self.names = names or [type(fn).__name__ for fn in self.reward_fns]
+        self.last_breakdown = {}  # agent -> list of (name, raw_reward, weighted_reward)
+
+    def get_rewards(self, agents, state, is_terminated, is_truncated, shared_info):
+        self.last_breakdown = {agent: [] for agent in agents}
+        combined_rewards = {agent: 0.0 for agent in agents}
+        for fn, weight, name in zip(self.reward_fns, self.weights, self.names):
+            rewards = fn.get_rewards(agents, state, is_terminated, is_truncated, shared_info)
+            for agent, reward in rewards.items():
+                combined_rewards[agent] += reward * weight
+                self.last_breakdown[agent].append((name, reward, reward * weight))
+        return combined_rewards
+
 
 def make_env(render: bool = True):
     """Create environment, optionally with RLViser renderer."""
@@ -41,9 +62,9 @@ def make_env(render: bool = True):
         TimeoutCondition(timeout_seconds=300),
     )
 
-    reward_fn = CombinedReward(
-        (TouchReward(), 0.1),
-        (GoalReward(), 10.0),
+    # --- Keep in sync with train.py rewards_and_weights ---
+    reward_fn = TrackedCombinedReward(
+        (JumpReward(), 3.0),
     )
 
     obs_builder = DefaultObs(
@@ -270,7 +291,19 @@ def watch(
             if not headless:
                 env.render()
 
-            total_reward += reward_dict[agents[0]]
+            # Print per-reward breakdown for the blue agent
+            agent0 = agents[0]
+            combined = reward_dict[agent0]
+            breakdown = env.reward_fn.last_breakdown.get(agent0, [])
+            parts = [f"{name}: {weighted:+.3f}" for name, _raw, weighted in breakdown if abs(weighted) > 0.001]
+            line = f"Step {steps:>4} | reward={combined:+.3f}"
+            if parts:
+                line += f"  ({', '.join(parts)})"
+            # Only print when there's a non-zero reward to reduce spam
+            if abs(combined) > 0.001:
+                print(line)
+
+            total_reward += combined
             steps += 1
             
             # Check if done
