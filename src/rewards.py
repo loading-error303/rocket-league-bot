@@ -182,3 +182,79 @@ class DriveToOpponentGoalReward(RewardFunction[AgentID, GameState, float]):
             rewards[agent] = float(np.clip(speed_toward_goal / common_values.CAR_MAX_SPEED, 0.0, 1.0))
 
         return rewards
+
+
+class JumpReward(RewardFunction[AgentID, GameState, float]):
+    """Reward for performing a jump.
+
+    Only rewards genuine jumps initiated via the jump mechanic (has_jumped=True).
+    Falling from the ceiling or driving off a wall without jumping gives zero reward.
+
+    Tracks each agent's ground→air transition and only grants reward when
+    the car left the ground through a jump. Reward is proportional to the
+    height gained above takeoff and upward velocity.
+    """
+
+    # Approximate z of car centre when sitting on the field
+    GROUND_Z = 17.01
+
+    def __init__(self):
+        self._prev_on_ground: Dict[AgentID, bool] = {}
+        self._jump_origin_z: Dict[AgentID, float] = {}
+        self._jump_initiated: Dict[AgentID, bool] = {}
+
+    def reset(
+        self,
+        agents: List[AgentID],
+        initial_state: GameState,
+        shared_info: Dict[str, Any],
+    ) -> None:
+        self._prev_on_ground.clear()
+        self._jump_origin_z.clear()
+        self._jump_initiated.clear()
+        for agent in agents:
+            car = initial_state.cars[agent]
+            self._prev_on_ground[agent] = car.on_ground
+            self._jump_origin_z[agent] = car.physics.position[2]
+            self._jump_initiated[agent] = False
+
+    def get_rewards(
+        self,
+        agents: List[AgentID],
+        state: GameState,
+        is_terminated: Dict[AgentID, bool],
+        is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any],
+    ) -> Dict[AgentID, float]:
+        rewards = {}
+        for agent in agents:
+            car = state.cars[agent]
+            z = car.physics.position[2]
+            vz = car.physics.linear_velocity[2]
+            was_on_ground = self._prev_on_ground.get(agent, True)
+
+            # Detect jump takeoff: was on ground, now airborne, jump button was used
+            if was_on_ground and not car.on_ground and car.has_jumped:
+                self._jump_origin_z[agent] = self.GROUND_Z
+                self._jump_initiated[agent] = True
+
+            # Landing resets the jump tracker
+            if car.on_ground:
+                self._jump_initiated[agent] = False
+                self._jump_origin_z[agent] = z
+
+            if self._jump_initiated.get(agent, False) and not car.on_ground:
+                # Height gained since takeoff, normalised by ceiling height
+                height_gained = max(0.0, z - self._jump_origin_z.get(agent, z))
+                height_reward = min(height_gained / common_values.CEILING_Z, 1.0)
+
+                # Bonus for upward velocity (rewards the rising phase more)
+                vel_reward = max(0.0, vz / common_values.CAR_MAX_SPEED)
+
+                rewards[agent] = float(height_reward + 0.5 * vel_reward)
+            else:
+                rewards[agent] = 0.0
+
+            self._prev_on_ground[agent] = car.on_ground
+
+        return rewards

@@ -37,7 +37,7 @@ def build_rlgym_env():
     from rlgym_ppo.util import RLGymV2GymWrapper
     
     # Import our custom rewards
-    from src.rewards import SpeedReward, TurnLeftReward, ForwardReward, DriveToOpponentGoalReward
+    from src.rewards import SpeedReward, TurnLeftReward, ForwardReward, DriveToOpponentGoalReward, JumpReward
     
     # Environment config
     tick_skip = 8  # 15 Hz decision rate
@@ -52,7 +52,8 @@ def build_rlgym_env():
     
     # Reward functions with weights
     rewards_and_weights = (
-        (DriveToOpponentGoalReward(), 1.0),
+        # (DriveToOpponentGoalReward(), 1.0),
+        (JumpReward(), 3.0),
     )
     
     reward_fn = CombinedReward(*rewards_and_weights)
