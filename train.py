@@ -37,11 +37,13 @@ def build_rlgym_env():
     from rlgym_ppo.util import RLGymV2GymWrapper
     
     # Import our custom rewards
-    from src.rewards import SpeedReward, TurnLeftReward, ForwardReward, DriveToOpponentGoalReward, JumpReward, BoostPickupReward
+    from src.rewards import (SpeedReward, TurnLeftReward, ForwardReward, DriveToOpponentGoalReward,
+                              JumpReward, BoostPickupReward, SpeedTowardBallReward,
+                              TouchBallReward, BallSpeedAfterTouchReward, GoalScoredReward)
     
     # Environment config
-    tick_skip = 8  # 15 Hz decision rate
-    timeout_seconds = 30
+    tick_skip = 12  # 10 Hz decision rate (faster training)
+    timeout_seconds = 15
     
     # Action parser with frame skip
     action_parser = RepeatAction(LookupTableAction(), repeats=tick_skip)
@@ -52,9 +54,12 @@ def build_rlgym_env():
     
     # Reward functions with weights
     rewards_and_weights = (
-        # (DriveToOpponentGoalReward(), 1.0),
-        (JumpReward(), 3.0),
-        (BoostPickupReward(), 1.0),  # Big pad=1.0, small pad=0.2 (less than jump)
+        (SpeedTowardBallReward(), 0.25),        # Continuous: close the gap to ball
+        (TouchBallReward(), 5.0),              # One-shot: reward each ball touch
+        (BallSpeedAfterTouchReward(), 3.0),    # One-shot: reward powerful hits
+        (GoalScoredReward(), 20.0)            # Big reward for scoring, penalty for conceding
+        # (JumpReward(), 3.0),                   # Continuous: reward jumping
+        # (BoostPickupReward(), 1.0),            # One-shot: collect boost pads
     )
     
     reward_fn = CombinedReward(*rewards_and_weights)
@@ -139,8 +144,8 @@ def train(timesteps: int, n_proc: int, checkpoint_freq: int, force_cpu: bool = F
     ppo_minibatch_size = 100_000
     
     # Network architecture
-    policy_layer_sizes = (512, 512, 256)
-    critic_layer_sizes = (512, 512, 256)
+    policy_layer_sizes = (256, 256, 128)
+    critic_layer_sizes = (256, 256, 128)
     
     print(f"Starting training: {timesteps:,} additional timesteps, {n_proc} processes")
     print(f"PPO batch size: {ppo_batch_size:,}")

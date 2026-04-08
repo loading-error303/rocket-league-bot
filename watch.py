@@ -30,7 +30,8 @@ from rlgym.rocket_league.state_mutators import (
 from rlgym.rocket_league import common_values
 from rlgym.rocket_league.rlviser import RLViserRenderer
 
-from src.rewards import JumpReward, BoostPickupReward
+from src.rewards import (JumpReward, BoostPickupReward, SpeedTowardBallReward,
+                         TouchBallReward, BallSpeedAfterTouchReward, GoalScoredReward)
 
 
 class TrackedCombinedReward(CombinedReward):
@@ -64,8 +65,12 @@ def make_env(render: bool = True):
 
     # --- Keep in sync with train.py rewards_and_weights ---
     reward_fn = TrackedCombinedReward(
-        (JumpReward(), 3.0),
-        (BoostPickupReward(), 1.0),
+        (SpeedTowardBallReward(), 0.25),
+        (TouchBallReward(), 5.0),
+        (BallSpeedAfterTouchReward(), 3.0),
+        (GoalScoredReward(), 20.0),
+        # (JumpReward(), 3.0),
+        # (BoostPickupReward(), 1.0),
     )
 
     obs_builder = DefaultObs(

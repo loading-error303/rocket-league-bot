@@ -313,3 +313,163 @@ class BoostPickupReward(RewardFunction[AgentID, GameState, float]):
             self._prev_boost[agent] = current_boost
 
         return rewards
+
+
+class SpeedTowardBallReward(RewardFunction[AgentID, GameState, float]):
+    """Reward for moving toward the ball.
+
+    Measures the component of velocity in the direction of the ball.
+    Returns 0-1 scaled by max car speed.
+    """
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        pass
+
+    def get_rewards(
+        self,
+        agents: List[AgentID],
+        state: GameState,
+        is_terminated: Dict[AgentID, bool],
+        is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any],
+    ) -> Dict[AgentID, float]:
+        ball_pos = state.ball.position
+        rewards = {}
+        for agent in agents:
+            car = state.cars[agent]
+            pos = car.physics.position
+            vel = car.physics.linear_velocity
+
+            to_ball = ball_pos - pos
+            dist = np.linalg.norm(to_ball)
+            if dist < 1e-5:
+                rewards[agent] = 1.0
+                continue
+            to_ball_dir = to_ball / dist
+
+            speed_toward_ball = np.dot(vel, to_ball_dir)
+            rewards[agent] = float(np.clip(speed_toward_ball / common_values.CAR_MAX_SPEED, 0.0, 1.0))
+        return rewards
+
+
+class TouchBallReward(RewardFunction[AgentID, GameState, float]):
+    """One-time reward for touching the ball.
+
+    Uses the car's ball_touches counter — gives a reward each time
+    the counter increments compared to the previous step.
+    """
+
+    def __init__(self):
+        self._prev_touches: Dict[AgentID, int] = {}
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        self._prev_touches.clear()
+        for agent in agents:
+            self._prev_touches[agent] = initial_state.cars[agent].ball_touches
+
+    def get_rewards(
+        self,
+        agents: List[AgentID],
+        state: GameState,
+        is_terminated: Dict[AgentID, bool],
+        is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any],
+    ) -> Dict[AgentID, float]:
+        rewards = {}
+        for agent in agents:
+            car = state.cars[agent]
+            current_touches = car.ball_touches
+            prev_touches = self._prev_touches.get(agent, current_touches)
+
+            if current_touches > prev_touches:
+                rewards[agent] = 1.0
+            else:
+                rewards[agent] = 0.0
+
+            self._prev_touches[agent] = current_touches
+        return rewards
+
+
+class BallSpeedAfterTouchReward(RewardFunction[AgentID, GameState, float]):
+    """Reward for how fast the ball is moving after the agent touches it.
+
+    Only fires on the step a touch is detected. Encourages powerful hits
+    rather than weak dribbles. Scaled by ball max speed.
+    """
+
+    def __init__(self):
+        self._prev_touches: Dict[AgentID, int] = {}
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        self._prev_touches.clear()
+        for agent in agents:
+            self._prev_touches[agent] = initial_state.cars[agent].ball_touches
+
+    def get_rewards(
+        self,
+        agents: List[AgentID],
+        state: GameState,
+        is_terminated: Dict[AgentID, bool],
+        is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any],
+    ) -> Dict[AgentID, float]:
+        ball_vel = state.ball.linear_velocity
+        ball_speed = np.linalg.norm(ball_vel)
+
+        rewards = {}
+        for agent in agents:
+            car = state.cars[agent]
+            current_touches = car.ball_touches
+            prev_touches = self._prev_touches.get(agent, current_touches)
+
+            if current_touches > prev_touches:
+                rewards[agent] = float(np.clip(ball_speed / common_values.BALL_MAX_SPEED, 0.0, 1.0))
+            else:
+                rewards[agent] = 0.0
+
+            self._prev_touches[agent] = current_touches
+        return rewards
+
+
+class GoalScoredReward(RewardFunction[AgentID, GameState, float]):
+    """Reward for scoring a goal, penalty for getting scored on.
+
+    Uses the termination signal from GoalCondition. When an episode ends
+    via goal, checks ball Y position to determine who scored.
+    Blue attacks +Y (orange goal), orange attacks -Y (blue goal).
+    """
+
+    def reset(self, agents: List[AgentID], initial_state: GameState, shared_info: Dict[str, Any]) -> None:
+        pass
+
+    def get_rewards(
+        self,
+        agents: List[AgentID],
+        state: GameState,
+        is_terminated: Dict[AgentID, bool],
+        is_truncated: Dict[AgentID, bool],
+        shared_info: Dict[str, Any],
+    ) -> Dict[AgentID, float]:
+        rewards = {}
+
+        # Check if any agent got terminated (goal scored)
+        goal_scored = any(is_terminated.get(a, False) for a in agents)
+
+        if not goal_scored:
+            for agent in agents:
+                rewards[agent] = 0.0
+            return rewards
+
+        # Ball Y determines who scored: +Y = scored in orange goal (blue scores)
+        ball_y = state.ball.position[1]
+        blue_scored = ball_y > 0
+
+        for agent in agents:
+            car = state.cars[agent]
+            is_blue = car.team_num != ORANGE_TEAM
+            if (is_blue and blue_scored) or (not is_blue and not blue_scored):
+                rewards[agent] = 1.0   # Scored
+            else:
+                rewards[agent] = -1.0  # Got scored on
+
+        return rewards
