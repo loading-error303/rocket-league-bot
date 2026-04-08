@@ -45,7 +45,7 @@ download-rlviser:
 
 # Clean training outputs
 clean:
-    powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue checkpoints, tensorboard_logs, models"
+    if (Test-Path checkpoints) { Remove-Item -Recurse -Force checkpoints }; if (Test-Path tensorboard_logs) { Remove-Item -Recurse -Force tensorboard_logs }; if (Test-Path models) { Remove-Item -Recurse -Force models }
     @echo "Cleaned training outputs"
 
 # Clean everything including venv
